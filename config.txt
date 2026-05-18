@@ -1,0 +1,9 @@
+pass: 5860
+key: 30
+log: 0
+el: 1
+url: C:/Users/IT/Documents/kiosk/k.html
+cm: 15
+watchdog: 120
+freeze_timeout: 5
+freeze_retries: 2
