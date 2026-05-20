@@ -24,7 +24,6 @@ def setup_logger(enable_log=True):
     logger = logging.getLogger()
 
     if not enable_log:
-        # Logging απενεργοποιημένο — null handler μόνο
         logger.setLevel(logging.CRITICAL + 1)
         logger.addHandler(logging.NullHandler())
         return log_file
@@ -32,12 +31,10 @@ def setup_logger(enable_log=True):
     logger.setLevel(logging.DEBUG)
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
 
-    # Handler αρχείου — UTF-8, overwrite σε κάθε εκκίνηση για καθαρό log
     fh = logging.FileHandler(log_file, mode="w", encoding="utf-8")
     fh.setLevel(logging.DEBUG)
     fh.setFormatter(fmt)
 
-    # Handler κονσόλας — για να βλέπουμε και στο terminal
     ch = logging.StreamHandler(sys.stdout)
     ch.setLevel(logging.DEBUG)
     ch.setFormatter(fmt)
@@ -45,7 +42,6 @@ def setup_logger(enable_log=True):
     logger.addHandler(fh)
     logger.addHandler(ch)
 
-    # Σιγή στα noisy selenium/urllib3 DEBUG messages (HTTP requests chromedriver)
     for noisy in ("urllib3", "urllib3.connectionpool", "selenium.webdriver.remote.remote_connection"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
 
@@ -65,7 +61,6 @@ def _path_to_url(path):
     path = path.strip()
     if path.lower().startswith(("http://", "https://", "file://")):
         return path
-    # Backslash σε forward slash
     path = path.replace('\\', '/')
     if not path.startswith("/"):
         path = "/" + path
@@ -76,7 +71,6 @@ def load_url():
     """
     Διαβάζει το πρώτο URL ή local path από το urls.txt.
     Αν δεν υπάρχει το αρχείο, χρησιμοποιεί το default_url.
-    Υποστηρίζει τόσο URLs (http/https) όσο και local paths.
     """
     default_url = "C:/Users/IT/Documents/kiosk/k.html"
     base_dir = (
@@ -102,14 +96,9 @@ def load_url():
     return url
 
 
-
 def load_config():
     """
-    Διαβάζει το config.txt και επιστρέφει (exit_password, keyboard_timeout_sec, enable_log).
-    Παράδειγμα config.txt:
-        pass: 854712
-        key: 30
-        log: 0
+    Διαβάζει το config.txt και επιστρέφει τις παραμέτρους.
     """
     base_dir = (
         os.path.dirname(sys.executable)
@@ -119,13 +108,13 @@ def load_config():
     file_path = os.path.join(base_dir, "config.txt")
     exit_password     = "854712"
     keyboard_timeout  = 30
-    enable_log        = True   # default: γράφει log
-    default_lang      = "en"   # default: αγγλικά
-    url               = None   # αν None, χρησιμοποιείται το hardcoded default
-    cm_offset         = 0      # default: κολλητά στο κάτω μέρος
-    watchdog_interval = 120    # default: 120 δευτερόλεπτα
-    freeze_timeout    = 5      # δευτερόλεπτα αναμονής για απόκριση Chrome
-    freeze_retries    = 2      # επαναλήψεις πριν θεωρηθεί σίγουρο freeze
+    enable_log        = True
+    default_lang      = "en"
+    url               = None
+    cm_offset         = 0
+    watchdog_interval = 120
+    freeze_timeout    = 5
+    freeze_retries    = 2
 
     try:
         if os.path.exists(file_path):
@@ -180,16 +169,10 @@ def load_config():
 
 
 # ---------------- Virtual Keyboard (In-Page Overlay) ----------------
-# Δεν χρησιμοποιούμε πλέον osk.exe — το πληκτρολόγιο είναι HTML overlay
-# μέσα στον Chrome, γράφει απευθείας στο focused input χωρίς να χάνεται το focus.
-
 KEYBOARD_JS = """
 (function() {
     if (document.getElementById('__vkb_overlay')) return;
 
-    /* =========================================================
-       ΔΙΑΤΑΞΕΙΣ ΠΛΗΚΤΡΩΝ
-       ========================================================= */
     var LAYOUTS = {
         en_lower: [
             ['1','2','3','4','5','6','7','8','9','0','⌫'],
@@ -221,14 +204,11 @@ KEYBOARD_JS = """
         ]
     };
 
-    var lang    = 'en';   // 'en' ή 'el'
+    var lang    = 'en';
     var shifted = false;
     var autoCloseTimer = null;
-    var VKB_TIMEOUT_MS = 30000; // default, θα οριστεί από Python
+    var VKB_TIMEOUT_MS = 30000;
 
-    /* =========================================================
-       STYLES
-       ========================================================= */
     var style = document.createElement('style');
     style.textContent = [
         '#__vkb_overlay{',
@@ -260,9 +240,6 @@ KEYBOARD_JS = """
     ].join('');
     document.head.appendChild(style);
 
-    /* =========================================================
-       DOM
-       ========================================================= */
     var overlay = document.createElement('div');
     overlay.id  = '__vkb_overlay';
 
@@ -276,15 +253,11 @@ KEYBOARD_JS = """
 
     document.body.appendChild(overlay);
 
-    /* =========================================================
-       BUILD ROWS
-       ========================================================= */
     function currentLayout() {
         return LAYOUTS[lang + (shifted ? '_upper' : '_lower')];
     }
 
     function buildRows() {
-        // Αφαιρούμε παλιά rows (όχι timerWrap)
         var old = overlay.querySelectorAll('.vkb-row');
         old.forEach(function(r){ overlay.removeChild(r); });
 
@@ -308,17 +281,12 @@ KEYBOARD_JS = """
         });
     }
 
-    /* =========================================================
-       TIMER BAR
-       ========================================================= */
     function startAutoClose() {
         clearAutoClose();
         if (!VKB_TIMEOUT_MS || VKB_TIMEOUT_MS <= 0) return;
 
-        // Animate bar
         timerBar.style.transition = 'none';
         timerBar.style.width = '100%';
-        // Force reflow
         timerBar.getBoundingClientRect();
         timerBar.style.transition = 'width ' + (VKB_TIMEOUT_MS/1000) + 's linear';
         timerBar.style.width = '0%';
@@ -329,7 +297,6 @@ KEYBOARD_JS = """
     }
 
     function resetAutoClose() {
-        // Κάθε φορά που πατιέται πλήκτρο, ξαναρχίζει ο χρόνος
         startAutoClose();
     }
 
@@ -339,14 +306,10 @@ KEYBOARD_JS = """
         timerBar.style.width = '100%';
     }
 
-    /* =========================================================
-       KEY HANDLER
-       ========================================================= */
     function handleKey(k, btnEl) {
         btnEl.classList.add('vkb-pressed');
         setTimeout(function(){ btnEl.classList.remove('vkb-pressed'); }, 110);
 
-        // Κάθε πάτημα επαναφέρει τον timer
         resetAutoClose();
 
         if (k === '✕') { window.__vkbHide(); return; }
@@ -364,7 +327,6 @@ KEYBOARD_JS = """
             return;
         }
 
-        /* Αν το exit overlay είναι ανοιχτό, γράφουμε πάντα εκεί */
         var el = (window.__vkbTargetOverride && window.__vkbTargetOverride.isConnected)
                  ? window.__vkbTargetOverride
                  : document.activeElement;
@@ -409,9 +371,6 @@ KEYBOARD_JS = """
         el.dispatchEvent(new Event('change', {bubbles:true}));
     }
 
-    /* =========================================================
-       SHOW / HIDE
-       ========================================================= */
     window.__vkbSetConfig = function(timeoutMs, defLang, cmOffset) {
         if (timeoutMs !== undefined) VKB_TIMEOUT_MS = timeoutMs;
         if (defLang !== undefined) { lang = defLang; }
@@ -431,7 +390,6 @@ KEYBOARD_JS = """
     window.__vkbHide = function() {
         clearAutoClose();
         overlay.style.display = 'none';
-        /* Δεν κάνουμε blur αν το exit overlay είναι ανοιχτό */
         if (!window.__vkbTargetOverride) {
             if (document.activeElement && document.activeElement !== document.body) {
                 document.activeElement.blur();
@@ -443,9 +401,6 @@ KEYBOARD_JS = """
         return overlay.style.display !== 'none';
     };
 
-    /* =========================================================
-       AUTO ATTACH TO INPUTS
-       ========================================================= */
     var INPUT_SEL = 'input:not([type=hidden]):not([type=submit]):not([type=button])' +
                     ':not([type=checkbox]):not([type=radio]), textarea';
 
@@ -455,7 +410,6 @@ KEYBOARD_JS = """
         el.addEventListener('focus', function() {
             window.__vkbShow();
         });
-        // Κλείσιμο αν πατηθεί ΕΞΩ από overlay ή input
         el.addEventListener('blur', function() {
             setTimeout(function() {
                 var active = document.activeElement;
@@ -483,7 +437,6 @@ KEYBOARD_JS = """
         });
     }).observe(document.body, {childList:true, subtree:true});
 
-    // Κλείσιμο αν πατηθεί εκτός input ΚΑΙ εκτός keyboard
     document.addEventListener('pointerdown', function(e) {
         if (!window.__vkbIsVisible()) return;
         var active = document.activeElement;
@@ -503,7 +456,6 @@ def inject_virtual_keyboard(driver, timeout_ms=30000, default_lang="en", cm_offs
     """Εισάγει το in-page virtual keyboard overlay στη σελίδα."""
     try:
         driver.execute_script(KEYBOARD_JS)
-        # Ορίζουμε timeout, default γλώσσα και cm offset
         driver.execute_script(f"""
             if(window.__vkbSetConfig) {{
                 window.__vkbSetConfig({timeout_ms}, '{default_lang}', {cm_offset});
@@ -514,7 +466,6 @@ def inject_virtual_keyboard(driver, timeout_ms=30000, default_lang="en", cm_offs
         logging.error(f"[VKB] Σφάλμα inject_virtual_keyboard: {e}")
 
 
-# Taskbar hide/show (χρειάζεται μόνο κατά εκκίνηση/τερματισμό πλέον)
 def _set_taskbar_visibility(visible: bool):
     try:
         import ctypes
@@ -533,25 +484,19 @@ def show_taskbar(): _set_taskbar_visibility(True)
 
 
 def hide_system_cursor():
-    """Κρύβει τον cursor σε επίπεδο Windows με SystemParametersInfo."""
     try:
         import ctypes
-        # Κρύβει τον cursor εντελώς μέσω registry/system parameter
-        # SPI_SETCURSORS = 0x0057 — αλλά χρειάζεται αρχείο cursor
-        # Καλύτερη μέθοδος: SetSystemCursor με κενό cursor
         SM_CXCURSOR = 13
         SM_CYCURSOR = 14
         w = ctypes.windll.user32.GetSystemMetrics(SM_CXCURSOR)
         h = ctypes.windll.user32.GetSystemMetrics(SM_CYCURSOR)
 
-        # Δημιουργούμε blank cursor (32x32 transparent)
         blank = ctypes.windll.user32.CreateCursor(
             None, 0, 0, w, h,
             (ctypes.c_byte * (w * h // 8))(*([0xFF] * (w * h // 8))),
             (ctypes.c_byte * (w * h // 8))(*([0x00] * (w * h // 8)))
         )
 
-        # Αντικαθιστούμε όλους τους standard cursors με τον blank
         OCR_NORMAL      = 32512
         OCR_IBEAM       = 32513
         OCR_WAIT        = 32514
@@ -568,10 +513,8 @@ def hide_system_cursor():
 
 
 def restore_system_cursor():
-    """Επαναφέρει τον default cursor των Windows."""
     try:
         import ctypes
-        # SPI_SETCURSORS = 0x0057 — επαναφέρει τους default cursors
         ctypes.windll.user32.SystemParametersInfoW(0x0057, 0, None, 0)
         logging.info("[CURSOR] System cursor επαναφέρθηκε")
     except Exception as e:
@@ -580,22 +523,13 @@ def restore_system_cursor():
 
 # ---------------- Chrome Always On Top ----------------
 def get_chrome_hwnd(driver):
-    """
-    Βρίσκει το κύριο HWND του Chrome.
-    Στρατηγική: παίρνουμε τα PIDs όλων των child processes του chromedriver,
-    μετά κάνουμε EnumWindows και ψάχνουμε παράθυρο με class Chrome_WidgetWin_1
-    που ανήκει σε κάποιο από αυτά τα PIDs και έχει τίτλο (= main window).
-    """
     try:
         import ctypes
         import ctypes.wintypes
         import subprocess
 
-        # Παίρνουμε το PID του chromedriver process
         cd_pid = driver.service.process.pid
 
-        # Βρίσκουμε όλα τα child PIDs του chromedriver (δηλ. τα Chrome processes)
-        # με WMIC — δεν χρειάζεται psutil
         chrome_pids = set()
         try:
             out = subprocess.check_output(
@@ -609,11 +543,10 @@ def get_chrome_hwnd(driver):
         except Exception as we:
             logging.debug(f"[TOPMOST] WMIC αποτυχία: {we}")
 
-        # Fallback: αν δεν βρήκαμε children, ψάχνουμε με class name μόνο
         use_pid_filter = len(chrome_pids) > 0
         logging.debug(f"[TOPMOST] Chrome PIDs: {chrome_pids}")
 
-        results = []  # (hwnd, title_length) — θέλουμε αυτό με τον μεγαλύτερο τίτλο
+        results = []
 
         EnumWindowsProc_type = ctypes.WINFUNCTYPE(
             ctypes.c_bool, ctypes.wintypes.HWND, ctypes.wintypes.LPARAM
@@ -629,7 +562,6 @@ def get_chrome_hwnd(driver):
                 if class_buf.value != "Chrome_WidgetWin_1":
                     return True
 
-                # Φιλτράρουμε με PID αν έχουμε
                 if use_pid_filter:
                     win_pid = ctypes.wintypes.DWORD()
                     ctypes.windll.user32.GetWindowThreadProcessId(hwnd, ctypes.byref(win_pid))
@@ -649,7 +581,6 @@ def get_chrome_hwnd(driver):
             logging.debug("[TOPMOST] Δεν βρέθηκε Chrome_WidgetWin_1 παράθυρο")
             return None
 
-        # Επιλέγουμε το παράθυρο με τον μεγαλύτερο τίτλο — αυτό είναι το main window
         results.sort(key=lambda x: x[1], reverse=True)
         hwnd = results[0][0]
         logging.debug(f"[TOPMOST] Επιλέχθηκε HWND={hwnd} (από {len(results)} παράθυρα)")
@@ -661,12 +592,6 @@ def get_chrome_hwnd(driver):
 
 
 def bring_chrome_to_front(driver):
-    """
-    Φέρνει το Chrome στο προσκήνιο.
-    Το Chrome σε fullscreen αγνοεί SetWindowPos/HWND_TOPMOST,
-    οπότε χρησιμοποιούμε το CDP Browser.setWindowBounds για να
-    σιγουρευτούμε ότι παραμένει fullscreen + BringWindowToTop.
-    """
     try:
         import ctypes
         import ctypes.wintypes
@@ -676,8 +601,6 @@ def bring_chrome_to_front(driver):
             logging.debug("[TOPMOST] HWND δεν βρέθηκε")
             return
 
-        # Ξεκλειδώνουμε το foreground lock με AttachThreadInput
-        # (χωρίς keybd_event που στέλνει πραγματικό πλήκτρο και χαλάει timers)
         cur_hwnd = ctypes.windll.user32.GetForegroundWindow()
         cur_tid  = ctypes.windll.user32.GetWindowThreadProcessId(cur_hwnd, None)
         my_tid   = ctypes.windll.kernel32.GetCurrentThreadId()
@@ -694,7 +617,6 @@ def bring_chrome_to_front(driver):
         if attached:
             ctypes.windll.user32.AttachThreadInput(my_tid, cur_tid, False)
 
-        # Επαναφορά fullscreen μέσω CDP (σε περίπτωση που το ShowWindow το έσπασε)
         try:
             window_info = driver.execute_cdp_cmd("Browser.getWindowForTarget", {})
             state = window_info.get("bounds", {}).get("windowState", "")
@@ -712,7 +634,7 @@ def bring_chrome_to_front(driver):
         logging.error(f"[TOPMOST] Σφάλμα bring_chrome_to_front: {e}")
 
 
-# Stubs — δεν χρησιμοποιούμε πλέον osk.exe
+# Stubs
 def open_virtual_keyboard():  pass
 def close_virtual_keyboard(): pass
 def ensure_tabtip_registry(): pass
@@ -720,7 +642,6 @@ def _is_osk_running(): return False
 
 # ---------------- URL Health Check ----------------
 def check_url_reachable(url, timeout=5):
-    """Ελέγχει αν ένα URL είναι προσβάσιμο (HTTP 200). Επιστρέφει True/False."""
     try:
         import urllib.request
         req = urllib.request.Request(url, method="HEAD")
@@ -758,10 +679,6 @@ def disable_right_click_and_selection(driver):
 
 
 def setup_persistent_scripts(driver, timeout_ms=30000, default_lang="en", exit_password="", cm_offset=0):
-    """
-    Καταχωρεί VKB + exit overlay μέσω CDP ώστε να inject-άρονται αυτόματα
-    σε ΚΑΘΕ σελίδα που φορτώνει (navigation, reload, iframe κλπ).
-    """
     try:
         cursor_css = """
             (function() {
@@ -777,14 +694,12 @@ def setup_persistent_scripts(driver, timeout_ms=30000, default_lang="en", exit_p
         """
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": cursor_css})
 
-        # VKB με σωστές παραμέτρους
         vkb_init = f"""
             {KEYBOARD_JS}
             if(window.__vkbSetConfig) {{ window.__vkbSetConfig({timeout_ms}, '{default_lang}', {cm_offset}); }}
         """
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": vkb_init})
 
-        # Exit overlay με τον κωδικό
         exit_js = EXIT_OVERLAY_JS.replace("'__EXIT_PASS__'", repr(exit_password))
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": exit_js})
 
@@ -796,7 +711,6 @@ def setup_persistent_scripts(driver, timeout_ms=30000, default_lang="en", exit_p
 def safe_get(driver, url):
     try:
         driver.get(url)
-        # Inject και στην τρέχουσα σελίδα (για την πρώτη φόρτωση)
         disable_right_click_and_selection(driver)
         inject_virtual_keyboard(driver, timeout_ms=getattr(safe_get, "_kb_timeout_ms", 30000), default_lang=getattr(safe_get, "_kb_default_lang", "en"), cm_offset=getattr(safe_get, "_kb_cm_offset", 0))
         inject_exit_overlay(driver, getattr(safe_get, "_exit_password", ""))
@@ -866,7 +780,7 @@ EXIT_OVERLAY_JS = """
 
     var overlayVisible = false;
     var exitAutoCloseTimer = null;
-    var EXIT_OVERLAY_TIMEOUT_MS = 30000; // 30 δευτερόλεπτα αδράνειας → αυτόματο κλείσιμο
+    var EXIT_OVERLAY_TIMEOUT_MS = 30000;
 
     function getInp() { return document.getElementById('__exit_pass_input'); }
 
@@ -891,7 +805,6 @@ EXIT_OVERLAY_JS = """
         var inp = getInp();
         inp.value = '';
         document.getElementById('__exit_err').textContent = '';
-        /* Ορίζουμε το override ΠΡΙΝ το focus ώστε το VKB να ξέρει πού να γράφει */
         window.__vkbTargetOverride = inp;
         startExitAutoClose();
         var attempts = 0;
@@ -925,7 +838,7 @@ EXIT_OVERLAY_JS = """
             getInp().value = '';
             window.__vkbTargetOverride = getInp();
             getInp().focus();
-            resetExitAutoClose(); // επαναφορά timer μετά από λάθος κωδικό
+            resetExitAutoClose();
         }
     }
 
@@ -936,14 +849,13 @@ EXIT_OVERLAY_JS = """
         e.preventDefault(); hideExitOverlay();
     });
     getInp().addEventListener('keydown', function(e){
-        resetExitAutoClose(); // κάθε πάτημα πλήκτρου επαναφέρει τον timer
+        resetExitAutoClose();
         if (e.key === 'Enter') tryExit();
     });
     getInp().addEventListener('input', function(e){
-        resetExitAutoClose(); // και κάθε αλλαγή στο input (από VKB)
+        resetExitAutoClose();
     });
 
-    /* Μετράμε κλικ — αγνοούμε κλικ πάνω στο overlay */
     document.addEventListener('click', function(e) {
         if (overlayVisible) return;
         var now = Date.now();
@@ -964,7 +876,6 @@ EXIT_OVERLAY_JS = """
 
 
 def inject_exit_overlay(driver, exit_password):
-    """Εισάγει το exit overlay στη σελίδα με τον σωστό κωδικό."""
     try:
         js = EXIT_OVERLAY_JS.replace("'__EXIT_PASS__'", repr(exit_password))
         driver.execute_script(js)
@@ -975,10 +886,6 @@ def inject_exit_overlay(driver, exit_password):
 
 # ---------------- Watchdog Log ----------------
 def watchdog_log(event_type, message):
-    """
-    Γράφει στο watchdog-log.txt (append mode, δεν σβήνεται στις εκκινήσεις).
-    event_type: "FREEZE", "REDIRECT", "RELOAD", "RECOVERY"
-    """
     try:
         base_dir = (
             os.path.dirname(sys.executable)
@@ -999,27 +906,16 @@ def watchdog_log(event_type, message):
 # ---------------- Keyboard polling thread ----------------
 def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_timeout=30,
                             target_url=None, fallback_url=None, watchdog_interval=120,
-                            freeze_timeout=5, freeze_retries=2):
-    """
-    Thread που:
-    1. Ελέγχει αν άλλαξε σελίδα → κάνει re-inject VKB + exit overlay
-    2. Ελέγχει αν ο χρήστης έβαλε σωστό κωδικό → τερματισμός
-    3. Watchdog κάθε N δευτερόλεπτα (από config.txt):
-       - Αν URL εκτός λίστας → redirect στο k.html
-       - Αν τρέχει k.html αλλά το κύριο URL είναι πάλι online → redirect εκεί
-       - Αν Chrome δεν αποκρίνεται (freeze) → log + restart Chrome
-    """
+                            freeze_timeout=5, freeze_retries=2, navigating_lock=None):
     poll_count        = 0
     last_url          = None
     last_watchdog_check = time.time()
     WATCHDOG_INTERVAL = max(30, watchdog_interval)
+    if navigating_lock is None:
+        navigating_lock = threading.Lock()
     FREEZE_TIMEOUT    = max(3, freeze_timeout)
     FREEZE_RETRIES    = max(1, freeze_retries)
 
-    # Εξάγει scheme+domain/ip μόνο (χωρίς path/query)
-    # π.χ. "http://test.gr/set?x=1"  → "http://test.gr"
-    # π.χ. "http://192.168.1.1/page" → "http://192.168.1.1"
-    # π.χ. "file:///C:/kiosk/k.html" → ολόκληρο path (τοπικό, δεν έχει domain)
     from urllib.parse import urlparse
     def _domain(u):
         if not u:
@@ -1027,12 +923,10 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
         p = urlparse(u)
         if p.scheme in ("http", "https"):
             return f"{p.scheme}://{p.netloc}".rstrip("/")
-        # file:// και άλλα — συγκρίνουμε ολόκληρο το path
         return u.split("?")[0].rstrip("/")
 
     target_domain   = _domain(target_url)   if target_url   else None
     fallback_domain = _domain(fallback_url) if fallback_url else None
-    # Για τον έλεγχο "τρέχει fallback;" χρειαζόμαστε ολόκληρο το path
     fallback_base   = fallback_url.split("?")[0].rstrip("/") if fallback_url else None
 
     accepted_domains = set()
@@ -1042,6 +936,7 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
     logging.info("[KB-THREAD] Εκκίνηση keyboard polling thread")
     logging.info(f"[KB-THREAD] Exit password μήκος: {len(exit_password)}")
     logging.info(f"[KB-THREAD] Watchdog: interval={WATCHDOG_INTERVAL}s | freeze_timeout={FREEZE_TIMEOUT}s | freeze_retries={FREEZE_RETRIES} | domains: {accepted_domains}")
+    logging.info(f"[KB-THREAD] target_url={target_url} | fallback_url={fallback_url}")
 
     def do_reinject(driver):
         try:
@@ -1080,7 +975,6 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
             poll_count += 1
             if poll_count % 30 == 0:
                 logging.debug(f"[KB-THREAD] poll #{poll_count} alive")
-            # Κάθε ~10 δευτερόλεπτα (17 × 0.6s) φέρνουμε το Chrome στο προσκήνιο
             if poll_count % 3 == 0:
                 bring_chrome_to_front(driver)
 
@@ -1088,7 +982,6 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
             try:
                 current_url = driver.current_url
                 if current_url != last_url and current_url not in ("", "about:blank", None):
-                    # Περιμένουμε να φορτώσει πλήρως
                     time.sleep(0.8)
                     ready = driver.execute_script("return document.readyState;")
                     if ready == "complete":
@@ -1109,25 +1002,29 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
                     if cur_domain and cur_domain not in accepted_domains:
                         watchdog_log("REDIRECT",
                             f"Μη αποδεκτό domain: {cur_domain} | url: {cur} | → fallback k.html")
-                        driver.get(fallback_url or target_url)
-                        time.sleep(1.0)
-                        do_reinject(driver)
-                        last_url = driver.current_url
+                        with navigating_lock:
+                            driver.get(fallback_url or target_url)
+                            time.sleep(1.0)
+                            do_reinject(driver)
+                            last_url = driver.current_url
 
                     # Περίπτωση 2: Τρέχει fallback (k.html) → έλεγχε αν το κύριο URL επέστρεψε
-                    elif target_url and fallback_base and cur.split("?")[0].rstrip("/").startswith(fallback_base):
+                    elif (target_url and fallback_base
+                          and target_url != fallback_url
+                          and cur.split("?")[0].rstrip("/").startswith(fallback_base)):
                         logging.debug("[WATCHDOG] Τρέχει fallback — έλεγχος αν επέστρεψε το κύριο URL")
                         if check_url_reachable(target_url, timeout=5):
                             watchdog_log("RECOVERY",
                                 f"Κύριο URL διαθέσιμο ξανά | → redirect: {target_url}")
-                            driver.get(target_url)
-                            time.sleep(1.0)
-                            do_reinject(driver)
-                            last_url = driver.current_url
+                            with navigating_lock:
+                                driver.get(target_url)
+                                time.sleep(1.0)
+                                do_reinject(driver)
+                                last_url = driver.current_url
                         else:
                             logging.debug("[WATCHDOG] Κύριο URL ακόμα μη διαθέσιμο — παραμένουμε στο fallback")
 
-                    # Περίπτωση 3: Domain OK — έλεγχος freeze μέσω timeout σε execute_script
+                    # Περίπτωση 3: Domain OK — έλεγχος freeze
                     else:
                         freeze_count = 0
                         for attempt in range(FREEZE_RETRIES):
@@ -1135,7 +1032,6 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
                                 driver.set_script_timeout(FREEZE_TIMEOUT)
                                 result = driver.execute_script("return 1;")
                                 if result == 1:
-                                    # Αποκρίνεται κανονικά
                                     freeze_count = 0
                                     break
                             except Exception:
@@ -1144,7 +1040,6 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
                                 time.sleep(1)
 
                         if freeze_count >= FREEZE_RETRIES:
-                            # Επιβεβαιωμένο freeze → log + restart Chrome
                             watchdog_log("FREEZE",
                                 f"Chrome δεν απάντησε σε {FREEZE_TIMEOUT}s × {FREEZE_RETRIES} φορές | "
                                 f"url: {cur} | → Restart Chrome")
@@ -1153,7 +1048,6 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
                             except Exception:
                                 pass
                             time.sleep(2)
-                            # Το main loop θα ανιχνεύσει το crash και θα κάνει restart
                         else:
                             logging.debug(f"[WATCHDOG] OK — domain: {cur_domain} | url: {cur}")
 
@@ -1177,7 +1071,6 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
 
 # ---------------- Main ----------------
 def main():
-    # Φόρτωση config ΠΡΩΤΑ ώστε να ξέρουμε αν θέλουμε log
     exit_password, keyboard_timeout, enable_log, default_lang, config_url, cm_offset, watchdog_interval, freeze_timeout, freeze_retries = load_config()
 
     log_path = setup_logger(enable_log=enable_log)
@@ -1187,11 +1080,13 @@ def main():
 
     ensure_tabtip_registry()
 
-    # Λογική επιλογής URL:
-    # 1. Αν το urls.txt έχει HTTP/HTTPS URL και απαντά 200 → χρήση αυτού
-    # 2. Αλλιώς → fallback στο url: από config.txt (αν υπάρχει) ή default
     urls_txt_url = load_url()
     config_fallback_url = _path_to_url(config_url) if config_url else None
+
+    # ---- ΔΙΟΡΘΩΣΗ: target_url είναι ΠΑΝΤΑ το αρχικό HTTP URL από urls.txt ----
+    # Έτσι ο watchdog ξέρει πάντα ποιο URL να ελέγξει για επαναφορά,
+    # ακόμα και αν ξεκινήσαμε με fallback λόγω αναποκρισίας.
+    target_url = urls_txt_url
 
     if urls_txt_url.startswith("http://") or urls_txt_url.startswith("https://"):
         logging.info(f"[MAIN] Έλεγχος προσβασιμότητας urls.txt URL: {urls_txt_url}")
@@ -1199,23 +1094,24 @@ def main():
             url = urls_txt_url
             logging.info(f"[MAIN] urls.txt URL OK → χρήση: {url}")
         else:
-            url = config_fallback_url or urls_txt_url
-            logging.warning(f"[MAIN] urls.txt URL ΜΗ προσβάσιμο → fallback: {url}")
+            # Ξεκινάμε με fallback, αλλά target_url παραμένει το αρχικό HTTP URL
+            url = config_fallback_url or _path_to_url("C:/Users/IT/Documents/kiosk/k.html")
+            logging.warning(f"[MAIN] urls.txt URL ΜΗ προσβάσιμο → εκκίνηση με fallback: {url}")
+            logging.info(f"[MAIN] Watchdog θα ελέγχει για επαναφορά: {target_url}")
     else:
         url = urls_txt_url
         logging.info(f"[MAIN] Τοπικό path, χωρίς HTTP check: {url}")
 
-    safe_get._exit_password = exit_password
-    logging.info(f"URL εκκίνησης: {url}")
-    print(f">>> URL που θα φορτωθεί: {url}")
-
+    safe_get._exit_password   = exit_password
     safe_get._kb_timeout_ms   = keyboard_timeout * 1000
     safe_get._kb_default_lang = default_lang
-    safe_get._exit_password   = exit_password
     safe_get._kb_cm_offset    = cm_offset
 
-    # Το fallback URL (k.html) — χρησιμοποιείται ως αρχική σελίδα Chrome
-    # και ως προορισμός watchdog όταν η κύρια σελίδα δεν είναι διαθέσιμη
+    logging.info(f"URL εκκίνησης: {url}")
+    logging.info(f"Target URL (watchdog): {target_url}")
+    print(f">>> URL εκκίνησης: {url}")
+    print(f">>> Target URL (watchdog): {target_url}")
+
     fallback_url = config_fallback_url or _path_to_url("C:/Users/IT/Documents/kiosk/k.html")
 
     def start_chrome():
@@ -1232,15 +1128,10 @@ def main():
         chrome_options.add_argument("--disable-features=TouchpadAndWheelScrollLatching")
         chrome_options.add_argument("--remote-debugging-port=0")
         chrome_options.add_argument("--user-data-dir=" + tempfile.mkdtemp())
-        # Touch/virtual keyboard σχετικά flags
         chrome_options.add_argument("--enable-virtual-keyboard")
         chrome_options.add_argument("--enable-features=VirtualKeyboard")
         chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         chrome_options.add_experimental_option("useAutomationExtension", False)
-
-        # Ανοίγουμε απευθείας το fallback URL (k.html) ώστε να μην εμφανιστεί
-        # η Google/New Tab για τα λίγα δευτερόλεπτα πριν φορτώσει το κύριο URL.
-        # Το Selenium θα κάνει driver.get() αμέσως μετά για το τελικό URL.
         chrome_options.add_argument(fallback_url)
 
         chromedriver_path = resource_path("chromedriver.exe")
@@ -1257,9 +1148,7 @@ def main():
                 cm_offset=safe_get._kb_cm_offset
             )
             safe_get(driver, url)
-            # Περιμένουμε να φορτώσει η σελίδα πριν κάνουμε fullscreen
-            # ώστε ο χρήστης να μην δει τη Google/New Tab
-            for _ in range(30):  # max 15 δευτερόλεπτα αναμονή
+            for _ in range(30):
                 try:
                     ready = driver.execute_script("return document.readyState;")
                     if ready == "complete":
@@ -1267,7 +1156,6 @@ def main():
                 except Exception:
                     pass
                 time.sleep(0.5)
-            # Fullscreen μέσω CDP αφού φορτώσει η σελίδα
             try:
                 window_info = driver.execute_cdp_cmd("Browser.getWindowForTarget", {})
                 driver.execute_cdp_cmd("Browser.setWindowBounds", {
@@ -1277,7 +1165,6 @@ def main():
                 logging.info("[CHROME] Fullscreen μέσω CDP")
             except Exception as fe:
                 logging.warning(f"[CHROME] Fullscreen απέτυχε: {fe}")
-            # Ορισμός TOPMOST κατά την εκκίνηση
             time.sleep(0.5)
             bring_chrome_to_front(driver)
             hide_taskbar()
@@ -1295,15 +1182,21 @@ def main():
     print(f"Kiosk browser εκκινήθηκε. URL: {url}")
     print(f"Logs στο: {log_path}")
 
-    # Shared reference για το keyboard thread (ώστε να μπορεί να ενημερωθεί σε crash)
     driver_ref = [driver]
     stop_event = threading.Event()
+    navigating_lock = threading.Lock()  # προστατεύει από ταυτόχρονο restart κατά navigation
 
     kb_thread = threading.Thread(
         target=keyboard_polling_thread,
         args=(driver_ref, stop_event, exit_password),
-        kwargs={"target_url": url, "fallback_url": fallback_url, "watchdog_interval": watchdog_interval,
-                "freeze_timeout": freeze_timeout, "freeze_retries": freeze_retries},
+        kwargs={
+            "target_url": target_url,
+            "fallback_url": fallback_url,
+            "watchdog_interval": watchdog_interval,
+            "freeze_timeout": freeze_timeout,
+            "freeze_retries": freeze_retries,
+            "navigating_lock": navigating_lock   # ← νέο
+        },
         daemon=True
     )
     kb_thread.start()
@@ -1312,7 +1205,6 @@ def main():
     # ---------------- Main loop ----------------
     while True:
         try:
-            # Έλεγχος αν το Chrome είναι ακόμα ζωντανό
             _ = driver_ref[0].current_url
             time.sleep(1)
 
@@ -1321,6 +1213,13 @@ def main():
             break
 
         except Exception as e:
+            # Αν ο watchdog κάνει navigation αυτή τη στιγμή, το current_url
+            # μπορεί να πετάξει exception στιγμιαία — δεν είναι πραγματικό crash.
+            if navigating_lock.locked():
+                logging.debug("[MAIN] Exception κατά navigation (αναμενόμενο) — αγνοείται")
+                time.sleep(1)
+                continue
+
             logging.error(f"Chrome crash ή απώλεια σύνδεσης: {e}. Επανεκκίνηση...")
             try:
                 driver_ref[0].quit()
@@ -1337,8 +1236,8 @@ def main():
 
     # ---------------- Cleanup ----------------
     stop_event.set()
-    show_taskbar()  # Επαναφέρουμε taskbar κατά τον τερματισμό
-    restore_system_cursor()  # Επαναφέρουμε cursor κατά τον τερματισμό
+    show_taskbar()
+    restore_system_cursor()
     close_virtual_keyboard()
     try:
         driver_ref[0].quit()
