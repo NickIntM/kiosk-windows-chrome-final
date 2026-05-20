@@ -14,7 +14,12 @@ from selenium.common.exceptions import WebDriverException
 
 # ---------------- Logging ----------------
 def setup_logger(enable_log=True):
-    log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug_log.txt")
+    base_dir = (
+        os.path.dirname(sys.executable)
+        if getattr(sys, 'frozen', False)
+        else os.path.dirname(os.path.abspath(__file__))
+    )
+    log_file = os.path.join(base_dir, "debug_log.txt")
 
     logger = logging.getLogger()
 
@@ -39,6 +44,10 @@ def setup_logger(enable_log=True):
 
     logger.addHandler(fh)
     logger.addHandler(ch)
+
+    # Σιγή στα noisy selenium/urllib3 DEBUG messages (HTTP requests chromedriver)
+    for noisy in ("urllib3", "urllib3.connectionpool", "selenium.webdriver.remote.remote_connection"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)
 
     logging.info("=== ΕΚΚΙΝΗΣΗ ΠΡΟΓΡΑΜΜΑΤΟΣ ===")
     logging.info(f"Log αρχείο: {log_file}")
@@ -1072,7 +1081,7 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
             if poll_count % 30 == 0:
                 logging.debug(f"[KB-THREAD] poll #{poll_count} alive")
             # Κάθε ~10 δευτερόλεπτα (17 × 0.6s) φέρνουμε το Chrome στο προσκήνιο
-            if poll_count % 17 == 0:
+            if poll_count % 3 == 0:
                 bring_chrome_to_front(driver)
 
             # Έλεγχος αλλαγής σελίδας
@@ -1163,7 +1172,7 @@ def keyboard_polling_thread(driver_ref, stop_event, exit_password, keyboard_time
             logging.error(f"[KB-THREAD] Σφάλμα: {type(e).__name__}: {e}")
             time.sleep(1)
 
-        time.sleep(0.6)
+        time.sleep(4)
 
 
 # ---------------- Main ----------------
