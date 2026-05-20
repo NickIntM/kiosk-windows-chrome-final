@@ -1,0 +1,8 @@
+Restrart :
+
+
+Program/script:
+shutdown
+
+Arguments:
+/r /f /t 0
