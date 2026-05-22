@@ -683,7 +683,7 @@ def setup_persistent_scripts(driver, timeout_ms=30000, default_lang="en", exit_p
         cursor_css = """
             (function() {
                 var s = document.createElement('style');
-                s.textContent = '*, *::before, *::after { cursor: none !important; }';
+                s.textContent = '*, *::before, *::after { cursor: none !important; } html, body { overscroll-behavior: none !important; }';
                 var inject = function() {
                     if (document.head) { document.head.appendChild(s); }
                     else if (document.documentElement) { document.documentElement.appendChild(s); }
@@ -693,6 +693,41 @@ def setup_persistent_scripts(driver, timeout_ms=30000, default_lang="en", exit_p
             })();
         """
         driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": cursor_css})
+
+        hide_fullscreen_btn_css = """
+            (function() {
+                var s = document.createElement('style');
+                s.textContent = [
+                    '* /deep/ #-internal-media-controls-overlay-cast-button { display:none !important; }',
+                    'div[id*="fullscreen"], div[class*="fullscreen-exit"], div[class*="fullscreen_exit"] { display:none !important; }',
+                    ':-webkit-full-screen-ancestor:not(iframe) > * { display: revert; }',
+                    '::-webkit-media-controls { display:none !important; }',
+                    '::backdrop { display:none !important; }'
+                ].join(' ');
+                var inject = function() {
+                    if (document.head) { document.head.appendChild(s); }
+                    else if (document.documentElement) { document.documentElement.appendChild(s); }
+                };
+                inject();
+                document.addEventListener('DOMContentLoaded', inject);
+
+                /* Παρακολούθηση fullscreenchange — αφαίρεση overlay button αν εμφανιστεί */
+                document.addEventListener('fullscreenchange', function() {
+                    setTimeout(function() {
+                        var overlays = document.querySelectorAll(
+                            '[style*="position: fixed"], [style*="position:fixed"]'
+                        );
+                        overlays.forEach(function(el) {
+                            var z = parseInt(window.getComputedStyle(el).zIndex || '0');
+                            if (z > 2000000 && el.id !== '__vkb_overlay' && el.id !== '__exit_overlay') {
+                                el.style.display = 'none';
+                            }
+                        });
+                    }, 100);
+                });
+            })();
+        """
+        driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {"source": hide_fullscreen_btn_css})
 
         vkb_init = f"""
             {KEYBOARD_JS}
@@ -1117,6 +1152,7 @@ def main():
     def start_chrome():
         chrome_options = Options()
         chrome_options.add_argument("--window-position=-10000,-10000")
+        chrome_options.add_argument("--kiosk")
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--disable-extensions")
         chrome_options.add_argument("--noerrdialogs")
@@ -1125,7 +1161,26 @@ def main():
         chrome_options.add_argument("--disable-client-side-phishing-detection")
         chrome_options.add_argument("--autoplay-policy=no-user-gesture-required")
         chrome_options.add_argument("--disable-pinch")
-        chrome_options.add_argument("--disable-features=TouchpadAndWheelScrollLatching")
+        chrome_options.add_argument("--disable-features=TouchpadAndWheelScrollLatching,OverlayScrollbar,ExitFullscreenBubble,OverscrollHistoryNavigation,TranslateUI,MediaRouter,DialMediaRouteProvider,GlobalMediaControls,Sharing,WebOTP,CopyLinkToText,ReadAnything,LensOverlay,PermissionChip,QuietNotificationPermissionUi")
+        chrome_options.add_argument("--disable-fullscreen-tab-detaching")
+        chrome_options.add_argument("--overscroll-history-navigation=0")
+        chrome_options.add_argument("--no-first-run")
+        chrome_options.add_argument("--no-default-browser-check")
+        chrome_options.add_argument("--disable-default-apps")
+        chrome_options.add_argument("--disable-translate")
+        chrome_options.add_argument("--disable-save-password-bubble")
+        chrome_options.add_argument("--disable-notifications")
+        chrome_options.add_argument("--block-new-web-contents")
+        chrome_options.add_argument("--disable-gesture-typing")
+        chrome_options.add_argument("--disable-popup-blocking")
+        chrome_options.add_argument("--disable-prompt-on-repost")
+        chrome_options.add_argument("--disable-hang-monitor")
+        chrome_options.add_argument("--disable-sync")
+        chrome_options.add_argument("--disable-domain-reliability")
+        chrome_options.add_argument("--disable-component-update")
+        chrome_options.add_argument("--no-pings")
+        chrome_options.add_argument("--password-store=basic")
+        chrome_options.add_argument("--use-mock-keychain")
         chrome_options.add_argument("--remote-debugging-port=0")
         chrome_options.add_argument("--user-data-dir=" + tempfile.mkdtemp())
         chrome_options.add_argument("--enable-virtual-keyboard")
